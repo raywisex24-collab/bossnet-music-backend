@@ -1,0 +1,12 @@
+[
+  {
+    "corsRuleName": "allowMusicUploads",
+    "allowedOrigins": ["*"],
+    "allowedHeaders": ["*"],
+    "allowedOperations": [
+      "b2_upload_file"
+    ],
+    "exposeHeaders": [],
+    "maxAgeSeconds": 3600
+  }
+]
