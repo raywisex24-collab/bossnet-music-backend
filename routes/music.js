@@ -27,6 +27,12 @@ const ALLOWED_AUDIO_TYPES = [
   "audio/mp4",
 ];
 
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
 
 // ==========================================
 // CREATE UPLOAD URL
@@ -127,6 +133,62 @@ router.post("/upload-url", async (req, res) => {
 // CREATE PLAYBACK URL
 // ==========================================
 
+router.post("/cover-upload-url", async (req, res) => {
+  try {
+    const { fileName, contentType } = req.body;
+
+    if (!fileName || !contentType) {
+      return res.status(400).json({
+        success: false,
+        message: "fileName and contentType are required",
+      });
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Unsupported image format. Use JPG, PNG, or WebP.",
+      });
+    }
+
+    const extension =
+      fileName.split(".").pop()?.toLowerCase() || "jpg";
+
+    const coverId = crypto.randomUUID();
+
+    // Temporary testing user ID; later replace with authenticated Firebase UID.
+    const userId = "development-user";
+
+    const key = `music/${userId}/covers/${coverId}.${extension}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const uploadUrl = await getSignedUrl(
+      b2,
+      command,
+      { expiresIn: 15 * 60 }
+    );
+
+    return res.json({
+      success: true,
+      coverId,
+      key,
+      uploadUrl,
+    });
+  } catch (error) {
+    console.error("B2 cover upload URL error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create cover upload URL",
+    });
+  }
+});
+
 router.post("/play-url", async (req, res) => {
   try {
 
@@ -182,5 +244,41 @@ router.post("/play-url", async (req, res) => {
   }
 });
 
+
+router.post("/cover-url", async (req, res) => {
+  try {
+    const { key } = req.body;
+
+    if (!key) {
+      return res.status(400).json({
+        success: false,
+        message: "Cover key is required",
+      });
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME,
+      Key: key,
+    });
+
+    const coverUrl = await getSignedUrl(
+      b2,
+      command,
+      { expiresIn: 60 * 60 }
+    );
+
+    return res.json({
+      success: true,
+      coverUrl,
+    });
+  } catch (error) {
+    console.error("B2 cover URL error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create cover URL",
+    });
+  }
+});
 
 module.exports = router;
