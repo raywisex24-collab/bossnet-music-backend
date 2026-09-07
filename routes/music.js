@@ -11,9 +11,37 @@ const {
 } = require("@aws-sdk/s3-request-presigner");
 
 const b2 = require("../config/b2");
+const admin = require("../config/firebaseAdmin");
 
 const router = express.Router();
+async function authenticateUser(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
 
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return null;
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+    return decodedToken;
+  } catch (error) {
+    console.error("Firebase authentication error:", error);
+
+    res.status(401).json({
+      success: false,
+      message: "Invalid or expired authentication token",
+    });
+
+    return null;
+  }
+}
 
 // Allowed audio formats
 const ALLOWED_AUDIO_TYPES = [
@@ -33,6 +61,54 @@ const ALLOWED_IMAGE_TYPES = [
   "image/webp",
 ];
 
+// ==========================================
+// INCREMENT PLAY COUNT
+// ==========================================
+
+router.post("/play-count", async (req, res) => {
+  try {
+    const user = await authenticateUser(req, res);
+
+    if (!user) return;
+
+    const { songId } = req.body;
+
+    if (!songId) {
+      return res.status(400).json({
+        success: false,
+        message: "Song ID is required",
+      });
+    }
+
+    const db = admin.firestore();
+    const songRef = db.collection("music").doc(songId);
+
+    const songSnap = await songRef.get();
+
+    if (!songSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: "Song not found",
+      });
+    }
+
+    await songRef.update({
+      plays: admin.firestore.FieldValue.increment(1),
+    });
+
+    return res.json({
+      success: true,
+      message: "Play count updated",
+    });
+  } catch (error) {
+    console.error("Failed to update play count:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update play count",
+    });
+  }
+});
 
 // ==========================================
 // CREATE UPLOAD URL
@@ -40,6 +116,10 @@ const ALLOWED_IMAGE_TYPES = [
 
 router.post("/upload-url", async (req, res) => {
   try {
+    const user = await authenticateUser(req, res);
+
+    if (!user) return;
+
     const {
       fileName,
       contentType,
@@ -74,15 +154,7 @@ router.post("/upload-url", async (req, res) => {
     const songId = crypto.randomUUID();
 
 
-    /*
-      Temporary user ID for testing.
-
-      Later this will come from
-      Bossnet authentication.
-    */
-
-    const userId = "development-user";
-
+   const userId = user.uid;
 
     // File location inside B2
     const key =
@@ -135,6 +207,10 @@ router.post("/upload-url", async (req, res) => {
 
 router.post("/cover-upload-url", async (req, res) => {
   try {
+    const user = await authenticateUser(req, res);
+
+    if (!user) return;
+
     const { fileName, contentType } = req.body;
 
     if (!fileName || !contentType) {
@@ -156,8 +232,7 @@ router.post("/cover-upload-url", async (req, res) => {
 
     const coverId = crypto.randomUUID();
 
-    // Temporary testing user ID; later replace with authenticated Firebase UID.
-    const userId = "development-user";
+    const userId = user.uid;
 
     const key = `music/${userId}/covers/${coverId}.${extension}`;
 
