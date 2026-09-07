@@ -266,11 +266,13 @@ router.post("/cover-upload-url", async (req, res) => {
 
 router.post("/play-url", async (req, res) => {
   try {
+    const user = await authenticateUser(req, res);
+
+    if (!user) return;
 
     const {
       key,
     } = req.body;
-
 
     if (!key) {
       return res.status(400).json({
@@ -322,6 +324,9 @@ router.post("/play-url", async (req, res) => {
 
 router.post("/cover-url", async (req, res) => {
   try {
+    const user = await authenticateUser(req, res);
+
+    if (!user) return;
     const { key } = req.body;
 
     if (!key) {
