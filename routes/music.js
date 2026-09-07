@@ -47,12 +47,50 @@ async function authenticateUser(req, res) {
 const ALLOWED_AUDIO_TYPES = [
   "audio/mpeg",
   "audio/mp3",
+
+  // WAV
   "audio/wav",
   "audio/x-wav",
-  "audio/ogg",
-  "audio/flac",
-  "audio/aac",
+  "audio/wave",
+  "audio/vnd.wave",
+
+  // M4A / AAC
   "audio/mp4",
+  "audio/x-m4a",
+  "audio/aac",
+  "audio/x-aac",
+
+  // OGG / Opus
+  "audio/ogg",
+  "audio/opus",
+  "audio/ogg; codecs=opus",
+
+  // FLAC
+  "audio/flac",
+  "audio/x-flac",
+
+  // WebM audio
+  "audio/webm",
+
+  // AIFF
+  "audio/aiff",
+  "audio/x-aiff",
+];
+
+// Common audio file extensions
+const ALLOWED_AUDIO_EXTENSIONS = [
+  "mp3",
+  "wav",
+  "wave",
+  "m4a",
+  "aac",
+  "ogg",
+  "oga",
+  "opus",
+  "flac",
+  "webm",
+  "aiff",
+  "aif",
 ];
 
 const ALLOWED_IMAGE_TYPES = [
@@ -133,22 +171,35 @@ router.post("/upload-url", async (req, res) => {
     }
 
 
-    // Make sure it's an audio file
-    if (!ALLOWED_AUDIO_TYPES.includes(contentType)) {
-      return res.status(400).json({
-        success: false,
-        message: "Unsupported audio format",
-      });
-    }
+// Validate audio format using both MIME type and file extension.
+// Different browsers/devices can report different MIME types
+// for the same audio format.
 
+const extension =
+  fileName
+    .split(".")
+    .pop()
+    ?.toLowerCase() || "";
 
-    // Get extension
-    const extension =
-      fileName
-        .split(".")
-        .pop()
-        ?.toLowerCase() || "mp3";
+const normalizedContentType =
+  contentType
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
 
+const isAllowedAudioType =
+  ALLOWED_AUDIO_TYPES.includes(normalizedContentType);
+
+const isAllowedAudioExtension =
+  ALLOWED_AUDIO_EXTENSIONS.includes(extension);
+
+if (!isAllowedAudioType && !isAllowedAudioExtension) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "Unsupported audio format. Supported formats: MP3, WAV, M4A, AAC, OGG, Opus, FLAC, WebM, and AIFF.",
+  });
+}
 
     // Generate unique ID
     const songId = crypto.randomUUID();
