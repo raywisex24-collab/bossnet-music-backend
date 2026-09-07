@@ -92,9 +92,9 @@ router.post("/play-count", async (req, res) => {
       });
     }
 
-    await songRef.update({
-      plays: admin.firestore.FieldValue.increment(1),
-    });
+await songRef.update({
+  plays: admin.FieldValue.increment(1),
+});
 
     return res.json({
       success: true,
